@@ -1,2 +1,101 @@
-# OLED-Black-Screensaver
-dynamic screensaver for multimonitor setups to apply a black screen to any monitor that remains static for a set amount of time ( time and sensitivity configurable)
+# Black Screensaver
+
+A tiny Windows tray app that blacks out each monitor **independently** after a period of inactivity, built with OLED monitors in mind. Move the mouse onto a blacked-out screen and it comes back instantly.
+
+Unlike the built-in Windows screensaver, which blanks every display at once, this one works per monitor: if you're working on monitor A, monitor B can go black while A stays on.
+
+## Features
+
+- **Per-monitor blanking.** Each monitor has its own idle timer, based on where the mouse has been.
+- **Instant wake.** Moving the mouse onto a blacked-out monitor restores it.
+- **Screen-motion detection.** If a monitor's picture is visibly changing (a video playing, for example), it is treated as active and stays on. Other idle monitors still blank.
+- **Audio fallback (optional).** While system audio is playing, no monitor is blanked. This covers content that screen capture can't see (see Limitations).
+- **System tray only.** No main window. Left-click the tray icon for Settings.
+- **Settings persist** between runs.
+- **Optional start with Windows.**
+- Adjustable idle timeout and sensitivity for both detectors, with live readouts in Settings to help you tune them.
+
+## Requirements
+
+- Windows 10 or 11
+- Python 3.10 or newer, **only if you build or run from source**. A built `.exe` needs no Python.
+
+## Build a standalone .exe
+
+1. Install Python from [python.org](https://www.python.org/downloads/) (tick **Add python.exe to PATH**).
+2. Put `black_screensaver.py` and `build.bat` in the same folder.
+3. Double-click `build.bat`.
+4. Your exe appears at `dist\BlackScreensaver.exe`. It is a single file you can copy anywhere.
+
+`build.bat` looks for Python via `py`, `python` and `python3`, then falls back to the common install folders under `%LOCALAPPDATA%\Programs\Python`.
+
+## Run from source instead
+
+```
+python -m pip install pywin32 pystray pillow comtypes mss
+python black_screensaver.py
+```
+
+## Using it
+
+A monitor icon appears in the system tray (green = running, gray = stopped). The app starts running immediately with a 30-second timeout.
+
+- **Left-click** the icon (or right-click, then **Settings...**) to open Settings.
+- Right-click also offers **Start/Stop** and **Quit**.
+
+In Settings you can change:
+
+| Setting | What it does |
+|---|---|
+| Idle seconds | How long the mouse must be away from a monitor before it goes black |
+| Keep a monitor on while its screen is visibly changing | Per-monitor video/motion detection |
+| Screen-change sensitivity | Lower = more sensitive. Watch the live `M1: 12.4 (changing)` readout to tune it |
+| Don't blank ANY monitor while audio is playing | Global audio fallback |
+| Audio sensitivity threshold | Lower = more sensitive. Compare against the live audio level readout |
+| Start automatically when Windows starts | Adds or removes a registry entry for the current user |
+
+Click **Save** to apply and persist changes.
+
+## How it works
+
+- Each monitor gets a borderless, always-on-top black window that is shown or hidden as needed. Monitors are never actually powered off.
+- Every ~150 ms the app checks which monitor the cursor is on.
+- Every second it grabs a tiny 64x36 grayscale thumbnail of each monitor that is still on and compares it to the previous one. A large enough change resets that monitor's idle timer, the same as mouse movement would.
+- The audio fallback reads the peak level of the default playback device and keeps monitors on for a few seconds after the last detected sound, so quiet passages in a video don't cause flicker.
+
+## Privacy
+
+Screenshots are reduced to tiny thumbnails, compared in memory, and discarded. Nothing is saved to disk or sent anywhere. The app makes no network connections.
+
+## Limitations
+
+- **Protected video can't be seen by screen capture.** Netflix and other DRM-protected streams usually appear black to any screenshot API, so motion detection sees "no change". The audio fallback is there for this case, but it is global: while sound plays, all monitors stay on.
+- **Audio-only content** (podcasts, music with a static window) has no visual motion, so it also relies on the global audio fallback.
+- **A silent, muted or paused video** looks like any other still image once it stops changing, and the monitor will eventually blank.
+- **Wake is by mouse.** A blacked-out monitor comes back when the cursor moves onto it. Keyboard input alone doesn't wake it.
+- **The audio check reads the default playback device only.** Sound on a non-default output won't be detected.
+- **Motion detection only runs on monitors that are currently on.** It can't see what's under the black overlay.
+- It blanks with an overlay rather than switching the display off, so the monitor stays powered. On OLED panels black pixels are off, which is what matters for burn-in.
+
+## Files and settings
+
+| What | Where |
+|---|---|
+| Settings | `%APPDATA%\BlackScreensaver\config.json` |
+| Startup entry | `HKCU\Software\Microsoft\Windows\CurrentVersion\Run`, value `BlackScreensaver` |
+| Startup error log | `black_screensaver_error.log`, next to the exe or script |
+| Runtime error log | `black_screensaver_tick_error.log`, same place |
+
+**To uninstall:** untick "Start automatically when Windows starts" and click Save, quit from the tray, then delete the exe and the `%APPDATA%\BlackScreensaver` folder.
+
+## Troubleshooting
+
+- **The exe doesn't start.** Look for `black_screensaver_error.log` next to it. A startup error also shows in a popup.
+- **`python` or `py` is not recognized.** Reinstall Python with "Add python.exe to PATH" ticked, or turn off the `python.exe` and `py.exe` toggles under Settings > Apps > Advanced app settings > App execution aliases. `build.bat` also tries the default install folders on its own.
+- **Antivirus or SmartScreen warns about the exe.** This is common with unsigned PyInstaller builds. Building it yourself from the source is the safest option.
+- **A monitor stays on when it shouldn't.** Open Settings and compare the live screen-motion and audio readouts to your thresholds. Clocks, animated wallpapers, blinking cursors and video ads can all count as motion, so raise the screen-change threshold slightly.
+- **A monitor blanks during a video.** Lower the screen-change threshold, or make sure the audio fallback is ticked.
+
+## License
+
+MIT. See [LICENSE](LICENSE).
